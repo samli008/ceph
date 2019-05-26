@@ -1,0 +1,151 @@
+#config hosts
+192.168.6.241    ceph1
+192.168.6.242    ceph2
+192.168.6.243    ceph3
+
+#ssh-keygen and ssh-copy-id to ceph{1..3} created trust;
+
+#config ceph local-yum on each node
+[ceph]
+name=ceph
+baseurl=http://192.168.6.61/ceph
+enabled=1
+gpgcheck=0
+
+#install ceph on each node
+
+for i in {1..3};do ssh ceph$i yum -y install ceph;done
+
+#mkdir ceph and install ceph-deploy on deploy node
+
+mkdir ceph
+yum -y install ceph-deploy
+
+#create monitor clutser
+
+cd ceph
+
+ceph-deploy new ceph1 ceph2 ceph3
+
+vi ceph.conf
+cluster = ceph
+osd pool default size = 2
+osd journal size = 2000
+mon clock drift allowed = 2
+mon clock drift warn backoff = 30
+mon allow pool delete = true
+public network = 192.168.20.0/24
+cluster network = 192.168.30.0/24
+
+ceph-deploy mon create-initial
+
+# on deploy node transfer config files
+
+ceph-deploy admin ceph{1..3}
+
+#ceph 12开始，monitor必须添加mgr
+
+ceph-deploy mgr create ceph{1..3}:mon_mgr
+
+#启用dashboard (在mon节点)
+
+ceph mgr module enable dashboard
+
+#create osd on each nodes
+
+for i in {1..3};do ceph-deploy disk zap ceph$i:vdb;done
+for i in {1..3};do ceph-deploy osd create ceph$i:vdb;done
+ceph-deploy osd create --data /dev/vde n15
+
+#view osd info
+ceph osd tree
+ceph osd df 
+ceph df
+ceph -s
+ceph mon stat
+systemctl restart ceph-mon.target
+
+#create rbd pool
+ceph osd pool create rbd 128 128
+ceph osd pool set rbd size 2 
+ceph osd pool application enable rbd rbd 
+rbd create disk1 -s 100G --image-feature layering
+rbd info disk1
+rbd ls -l
+rbd showmapped
+rbd map disk1 
+rbd unmap disk1
+rbd rm disk1
+
+#delete osd 
+ceph osd out 1
+systemctl stop ceph-osd@1  
+ceph osd crush remove osd.1
+ceph auth del osd.1
+ceph osd rm osd.1
+umount /dev/vdc1
+
+#add new osd
+ceph-deploy disk zap ceph5:vdc
+ceph-deploy osd create ceph5:vdc
+
+#export osd crushmap
+ceph osd getcrushmap -o map.bin
+crushtool -d map.bin -o map.txt
+
+#osd crushmap default rule type host ; one ceph node modify default rule type osd before osd create; edit map.txt with vi;
+
+#import osd crushmap
+crushtool -c map.txt -o map.bin.new
+ceph osd setcrushmap -i map.bin.new
+
+ceph osd pool get rbd pg_num
+ceph osd pool set rbd pg_num 256
+ceph osd pool get rbd pgp_num
+ceph osd pool set rbd pgp_num 256
+
+yum -y install kernel #reboot
+yum -y install tcmu-runner targetcli-fb ceph-iscsi-config ceph-iscsi-cli python-rtslib
+
+/backstores/user:rbd> create cfgstring=rbd/iscsi1 name=disk1 size=1T
+/iscsi> create iqn.2019-01.com.storage:ceph
+
+ceph tell osd.* injectargs '--osd_client_watch_timeout 15'
+ceph tell osd.* injectargs '--osd_heartbeat_grace 20'
+ceph tell osd.* injectargs '--osd_heartbeat_interval 5'
+
+systemctl restart ceph-osd@x #on nodes
+
+cat >> /etc/ceph/iscsi-gateway.cfg << EOF
+[config]
+cluster_name = ceph
+gateway_keyring = ceph.client.admin.keyring
+api_secure = false
+trusted_ip_list = 192.168.7.32,192.168.7.33
+EOF
+
+
+systemctl daemon-reload
+systemctl enable rbd-target-api
+systemctl start rbd-target-api
+systemctl status rbd-target-api
+
+gwcli  #mkdir /etc/target on nodes
+
+/> cd iscsi-target 
+/iscsi-target> -ha
+/iscsi-target> cd iqn.2019-01.com.storage:ceph-ha
+
+/iscsi-target...orage:ceph-ha> cd gateways
+/iscsi-target...h-ha/gateways> create ceph6 192.168.7.26 skipchecks=true
+/iscsi-target...h-ha/gateways> create ceph7 192.168.7.27 skipchecks=true
+
+cd /disks
+/disks> create pool=rbd image=iscsi2 size=2T
+
+/> cd iscsi-target/iqn.2019-01.com.storage:ceph-ha/
+/iscsi-target...orage:ceph-ha> cd hosts
+/iscsi-target...ceph-ha/hosts> create iqn.1991-05.com.microsoft:2008li
+/iscsi-target...ceph-ha/hosts> cd iqn.1991-05.com.microsoft:2008li
+/iscsi-target...rosoft:2008xx> disk add rbd.iscsi2
+/disks> resize rbd.iscsi2 3T
