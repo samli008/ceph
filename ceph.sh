@@ -46,4 +46,5 @@ ceph mgr services
 #create auth key
 ceph-authtool -p /etc/ceph/ceph.client.admin.keyring > /root/admin.key
 echo "mount -t ceph n13:6789:/ /mnt -o name=admin,secretfile=admin.key"
+echo "kvm1:6789:/ /kvm ceph name=admin,secretfile=/root/admin.key,noatime,_netdev 0 0"
 echo "ceph-fuse -m n13:6789,n14:6789,n15:6789 /mnt"
