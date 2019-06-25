@@ -1,0 +1,108 @@
+rm -f /etc/yum.repos.d/*
+cp /root/rocky.repo /etc/yum.repos.d/
+yum -y install docker python-devel libffi-devel gcc openssl-devel libselinux-python git bash-completion net-tools python-pip ansible
+
+cd /root/pip
+pip install pip-19.1.1-py2.py3-none-any.whl
+pip install kolla-ansible --ignore-installed PyYAML --no-index --find-links=/root/pip
+pip install python-openstackclient --no-index --find-links=/root/pip
+pip install decorator-4.4.0-py2.py3-none-any.whl
+
+cd /root/kolla
+pip install --no-index --find-links=/root/pip -r requirements.txt
+cd /root/kolla-ansible
+pip install --no-index --find-links=/root/pip -r requirements.txt
+
+sed -i '/ExecStart/a\--insecure-registry 192.168.88.100:4000 \\' /usr/lib/systemd/system/docker.service
+
+cd /etc/systemd/system/
+mkdir docker.service.d
+cd docker.service.d
+
+cat > kolla.conf << EOF
+[Service]
+MountFlags=shared
+EOF
+
+systemctl daemon-reload
+systemctl restart docker
+systemctl enable docker
+
+mkdir -p /etc/kolla
+cd /etc/kolla
+cp -r /usr/share/kolla-ansible/etc_examples/kolla/* .
+
+mkdir -p /etc/kolla/config
+cd /etc/kolla/config
+
+cat > ceph.conf << EOF
+osd pool default size = 2
+osd journal size = 2000
+mon clock drift allowed = 2
+mon clock drift warn backoff = 30
+mon allow pool delete = true
+EOF
+
+cat > nfs_shares << EOF
+storage01:/kolla_nfs
+EOF
+
+cat >> /etc/hosts << EOF
+192.168.88.129 storage01
+EOF
+
+cd /etc/kolla/
+kolla-genpwd
+sed -i 's/^keystone_admin.*/keystone_admin_password: admin/' passwords.yml
+
+cat > /etc/ansible/ansible.cfg << EOF
+[defaults]
+forks = 100
+host_key_checking = False
+pipelining = True
+EOF
+
+cat > /etc/kolla/globals.yml << EOF
+---
+kolla_base_distro: "centos"
+kolla_install_type: "source"
+openstack_release: "rocky"
+kolla_internal_vip_address: "192.168.88.110"
+docker_registry: "192.168.88.100:4000"
+docker_namespace: "kolla"
+network_interface: "eth0"
+neutron_external_interface: "eth1"
+enable_cinder: "yes"
+#enable_cinder_backend_nfs: "yes"
+glance_enable_rolling_upgrade: "no"
+#enable_cinder_backend_lvm: "yes"
+#cinder_volume_group: "cinder-volumes"
+#enable_cinder_backend_iscsi: "yes"
+enable_ceph: "yes"
+enable_ceph_rgw: "yes"
+enable_ceph_rgw_keystone: "yes"
+glance_backend_ceph: "yes"
+cinder_backend_ceph: "{{ enable_ceph }}"
+nova_backend_ceph: "{{ enable_ceph }}"
+#cluster_interface: "eth2"
+#keepalived_virtual_router_id: "51"
+ironic_dnsmasq_dhcp_range:
+tempest_image_id:
+tempest_flavor_ref_id:
+tempest_public_network_id:
+tempest_floating_network_name:
+EOF
+
+kolla-ansible deploy
+kolla-ansible post-deploy
+echo "source /etc/kolla/admin-openrc.sh" >> /root/.bash_profile
+source /etc/kolla/admin-openrc.sh
+nova list
+
+echo "edit /etc/kolla/globals.yml for config openstack and ceph"
+echo "run kolla-ansible prechecks with screen to check pre-environment"
+echo "run kolla-ansible deploy with screen to install openstack container"
+echo "run kolla-ansible -i multinode prechecks to check multi-node"
+echo "run kolla-ansible -i multinode deploy to install openstack multi-node"
+echo "edit /usr/share/kolla-ansible/init-runonce neutron networking"
+echo "source /usr/share/kolla-ansible/init-runonce create neutron networking"

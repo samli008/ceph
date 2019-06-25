@@ -1,0 +1,13 @@
+read -p "pls input ceph container name [osd1]: " osd
+read -p "pls input ceph disk [vdb]: " disk
+
+docker run -d --name=del --privileged=true \
+-v /dev:/dev \
+-e OSD_DEVICE=/dev/$disk \
+ceph/daemon zap_device
+
+docker rm -f del
+
+docker run -d --net=host --name=$osd --restart=always --privileged=true -v /etc/ceph:/etc/ceph -v /var/lib/ceph:/var/lib/ceph -v /dev/:/dev/ -e OSD_DEVICE=/dev/$disk -e OSD_TYPE=disk -e OSD_BLUESTORE=1 ceph/daemon osd
+
+echo "docker exec mon ceph osd tree"

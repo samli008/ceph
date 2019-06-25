@@ -1,0 +1,11 @@
+tar xzvf docker.tar
+
+rm -f /etc/yum.repos.d/*
+cp docker.repo /etc/yum.repos.d/
+
+yum -y install docker
+systemctl enable docker
+systemctl start docker
+
+docker load < cephdaemon.tar
+docker images

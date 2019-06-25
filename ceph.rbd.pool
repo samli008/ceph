@@ -1,0 +1,8 @@
+read -p "pls input rbd pool pg_num: " pg_num
+docker exec mon ceph osd pool create rbd $pg_num
+docker exec mon ceph osd pool set rbd size 2
+docker exec mon ceph osd pool get rbd size
+docker exec mon ceph osd pool application enable rbd rbd
+echo "alias rbd='docker exec mon rbd'" >> /root/.bash_profile
+echo "run rbd ls or rbd info rbd_name to show info"
+source /root/.bash_profile

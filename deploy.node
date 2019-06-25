@@ -1,0 +1,13 @@
+read -p "pls input node name: " node
+read -p "pls input node ip: " ip
+read -p "pls input subnet [192.168.88.0/24]: " net
+
+ssh $node mkdir -p /etc/ceph /var/lib/ceph
+scp -r /etc/ceph/* $node:/etc/ceph/
+scp -r /var/lib/ceph/bootstrap-* $node:/var/lib/ceph/
+
+scp chrony chrony.rpm libseccomp.rpm docker.tar cephdaemon.tar install ceph.osd docker.repo $node:/root/
+
+ssh $node sh install
+
+ssh $node docker run -d --net=host --name=mon --restart=always -v /etc/ceph:/etc/ceph -v /var/lib/ceph:/var/lib/ceph -e MON_IP=$ip -e CEPH_PUBLIC_NETWORK=$net ceph/daemon mon

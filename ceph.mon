@@ -1,0 +1,20 @@
+read -p "pls input mon node ip " ip
+read -p "pls input ceph network [192.168.88.0/24]: " net
+
+mkdir -p /etc/ceph /var/lib/ceph
+
+docker run -d --net=host --name=mon --restart=always -v /etc/ceph:/etc/ceph -v /var/lib/ceph:/var/lib/ceph -e MON_IP=$ip -e CEPH_PUBLIC_NETWORK=$net ceph/daemon mon
+
+docker run -d --net=host --name=mgr --restart=always -v /etc/ceph:/etc/ceph -v /var/lib/ceph:/var/lib/ceph ceph/daemon mgr
+
+docker exec mgr ceph mgr module enable dashboard
+docker exec mgr ceph dashboard create-self-signed-cert
+docker exec mgr ceph dashboard set-login-credentials admin admin
+docker exec mgr ceph mgr services
+
+docker exec mon ceph -s 
+docker exec mgr ceph mgr services
+
+echo "ceph conf in /etc/ceph/ and /var/lib/ceph"
+echo "alias ceph='docker exec mon ceph'" >> /root/.bash_profile
+source /root/.bash_profile

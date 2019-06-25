@@ -1,0 +1,4 @@
+read -p "pls input rbd name: " name
+read -p "pls input rbd size:[200G] " size
+docker exec mon rbd create $name -s $size --image-feature layering
+echo "run rbd ls or rbd info rbd_name to show info"
