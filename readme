@@ -1,0 +1,8 @@
+1. sh install
+2. sh ceph.mon
+3. sh deploy.node 
+4. sh ceph.osd    #on each nodes
+5. sh ceph.fs
+6. sh chrony      #on each nodes
+7. sh ceph.rbd.pool
+8. sh ceph.rbd
