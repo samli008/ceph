@@ -86,6 +86,8 @@ cinder_backend_ceph: "{{ enable_ceph }}"
 nova_backend_ceph: "{{ enable_ceph }}"
 #cluster_interface: "eth2"
 #keepalived_virtual_router_id: "51"
+neutron_plugin_agent: "linuxbridge"
+enable_openvswitch: "no"
 ironic_dnsmasq_dhcp_range:
 tempest_image_id:
 tempest_flavor_ref_id:
