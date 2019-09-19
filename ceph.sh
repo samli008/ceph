@@ -20,9 +20,9 @@ vgremove -f `vgs |grep ceph | awk '{print $1}'`
 pvremove /dev/vd{c..e}
 
 #create osd with vdc vdd vde on n13 n14 n15
-ceph-deploy osd create --data /dev/vdc n13
-ceph-deploy osd create --data /dev/vdd n14
-ceph-deploy osd create --data /dev/vde n15
+ceph-deploy osd create n13:vdc 
+ceph-deploy osd create n14:vdd 
+ceph-deploy osd create n15:vde 
 
 #create rbd pool
 #ceph osd pool create rbd 80 80
