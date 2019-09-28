@@ -1,0 +1,52 @@
+#deploy cephfs metadata server
+
+ceph-deploy mds create ceph3
+
+ceph osd pool create cephfs_data 128   #on mds node
+
+ceph osd pool create cephfs_metadata 128  #on mds node
+
+ceph fs new cephfs cephfs_metadata cephfs_data
+
+ceph osd pool delete cephfs_metadata cephfs_metadata --yes-i-really-really-mean-it
+
+ceph fs ls
+
+ceph mds stat
+
+#install ceph-fuse on cephfs client
+
+yum -y install ceph-fuse
+
+/etc/ceph/ceph.client.admin.keyring
+
+ceph-fuse -m 172.16.90.95:6789 /mnt/ceph
+
+ceph-authtool -p /etc/ceph/ceph.client.admin.keyring > admin.key
+
+mount -t ceph ceph3:6789:/ /mnt -o name=admin,secretfile=admin.key
+
+echo "ceph1:6789:/ /mnt ceph name=admin,secretfile=/root/admin.key,noatime,_netdev 0 2" >> /etc/fstab
+
+df -hT
+
+#add mds node
+
+ceph-deploy mds create ceph4
+
+[root@ceph2 ceph]# ceph mds stat
+e12: 1/1/1 up {0=ceph3=up:active}, 1 up:standby
+
+[root@ceph5 mnt]# ceph mds stat
+e16: 1/1/1 up {0=ceph4=up:active}
+
+
+#delete ceph fs
+
+systemctl stop ceph-mds@ceph3 #on all nodes
+
+ceph fs rm cephfs --yes-i-really-mean-it
+
+ceph osd pool delete cephfs_metadata cephfs_metadata --yes-i-really-really-mean-it
+
+ceph osd pool delete cephfs_data cephfs_data --yes-i-really-really-mean-it
