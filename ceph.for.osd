@@ -1,0 +1,15 @@
+for i in {a..l};
+do
+docker run -d --net=host --name=sd$i \
+--restart=always --privileged=true \
+-v /etc/ceph:/etc/ceph \
+-v /var/lib/ceph:/var/lib/ceph \
+-v /dev/:/dev/ \
+-e OSD_FORCE_ZAP=1 \
+-e OSD_TYPE=disk \
+-e OSD_BLUESTORE=1 \
+-e OSD_DEVICE=/dev/sd$i \
+ceph/daemon osd
+done
+
+echo "docker exec mon ceph osd tree"
