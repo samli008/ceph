@@ -1,0 +1,8 @@
+read -p "pls input osd container name: " name
+read -p "pls input osd number: " num
+read -p "pls input device name:[sdb1] " sd
+docker rm -f $name
+ceph osd crush remove osd.$num
+ceph auth del osd.$num
+ceph osd rm osd.$num
+umount /dev/$sd
